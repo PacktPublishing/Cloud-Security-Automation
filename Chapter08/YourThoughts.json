@@ -1,0 +1,444 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "ServiceRole": {
+            "Default": "aws-opsworks-service-role",
+            "Description": "myOpsworksServcieRole",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "64",
+            "ConstraintDescription": "contains letter and
+             alpha numeric character"
+        },
+        "InstanceRole": {
+            "Default": "aws-opsworks-ec2-role",
+            "Description": "Instance role for Opsworks",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "64",
+            "ConstraintDescription": "contains letter
+             and alpha numeric character"
+        },
+        "AppName": {
+            "Default": "mydemoapp",
+            "Description": "Name of the Application",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "64",
+            "ConstraintDescription": "contains letter
+             and alpha neumeric character."
+        },
+        "MysqlRootPassword": {
+            "Description": "MysqlRootPassword",
+            "NoEcho": "true",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "myDemoStack": {
+            "Type": "AWS::OpsWorks::Stack",
+            "Properties": {
+                "Name": {
+                    "Ref": "AWS::StackName"
+                },
+                "ServiceRoleArn": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            "arn:aws:iam::",
+                            {
+                                "Ref": "AWS::AccountId"
+                            },
+                            ":role/",
+                            {
+                                "Ref": "ServiceRole"
+                            }
+                        ]
+                    ]
+                },
+                "DefaultInstanceProfileArn": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            "arn:aws:iam::",
+                            {
+                                "Ref": "AWS::AccountId"
+                            },
+                            ":instance-profile/",
+                            {
+                                "Ref": "InstanceRole"
+                            }
+                        ]
+                    ]
+                },
+                "ConfigurationManager": {
+                    "Name": "Chef",
+                    "Version": "11.10"
+                },
+                "DefaultOs": "Amazon Linux 2017.09",
+                "UseCustomCookbooks": "true",
+                "CustomCookbooksSource": {
+                    "Type": "git",
+                    "Url": "git://github.com/amazonwebservices/
+                     opsworks-example-cookbooks.git"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "6cbc631f-81d7-4261-867d-a5a49af8e2ef"
+                }
+            }
+        },
+        "myLayer": {
+            "Type": "AWS::OpsWorks::Layer",
+            "DependsOn": "mydemoapp",
+            "Properties": {
+                "StackId": {
+                    "Ref": "myDemoStack"
+                },
+                "Type": "php-app",
+                "Shortname": "php-app",
+                "EnableAutoHealing": "true",
+                "AutoAssignElasticIps": "false",
+                "AutoAssignPublicIps": "true",
+                "Name": "MyPHPApp",
+                "CustomRecipes": {
+                    "Configure": [
+                        "phpapp::appsetup"
+                    ]
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "5669c25d-ed1f-4a36-8cd8-d8e023b10d13"
+                }
+            }
+        },
+        "DBLayer": {
+            "Type": "AWS::OpsWorks::Layer",
+            "DependsOn": "mydemoapp",
+            "Properties": {
+                "StackId": {
+                    "Ref": "myDemoStack"
+                },
+                "Type": "db-master",
+                "Shortname": "db-layer",
+                "EnableAutoHealing": "true",
+                "AutoAssignElasticIps": "false",
+                "AutoAssignPublicIps": "true",
+                "Name": "MyMySQL",
+                "CustomRecipes": {
+                    "Setup": [
+                        "phpapp::dbsetup"
+                    ]
+                },
+                "Attributes": {
+                    "MysqlRootPassword": {
+                        "Ref": "MysqlRootPassword"
+                    },
+                    "MysqlRootPasswordUbiquitous": "true"
+                },
+                "VolumeConfigurations": [
+                    {
+                        "MountPoint": "/vol/mysql",
+                        "NumberOfDisks": 1,
+                        "Size": 20
+                    }
+                ]
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "edbd7ee2-36ab-4680-bd75-e8b59090066f"
+                }
+            }
+        },
+        "ELBAttachment": {
+            "Type": "AWS::OpsWorks::ElasticLoadBalancerAttachment",
+            "Properties": {
+                "ElasticLoadBalancerName": {
+                    "Ref": "ELB"
+                },
+                "LayerId": {
+                    "Ref": "myLayer"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "68a38b65-512e-4071-8aff-22dafb5a5a98"
+                }
+            }
+        },
+        "ELB": {
+            "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Properties": {
+                "AvailabilityZones": {
+                    "Fn::GetAZs": ""
+                },
+                "Listeners": [
+                    {
+                        "LoadBalancerPort": "80",
+                        "InstancePort": "80",
+                        "Protocol": "HTTP",
+                        "InstanceProtocol": "HTTP"
+                    }
+                ],
+                "HealthCheck": {
+                    "Target": "HTTP:80/",
+                    "HealthyThreshold": "2",
+                    "UnhealthyThreshold": "10",
+                    "Interval": "30",
+                    "Timeout": "5"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "40ab7475-af57-4eb5-a9b9-f63926c70df4"
+                }
+            }
+        },
+        "myAppInstance1": {
+            "Type": "AWS::OpsWorks::Instance",
+            "Properties": {
+                "StackId": {
+                    "Ref": "myDemoStack"
+                },
+                "LayerIds": [
+                    {
+                        "Ref": "myLayer"
+                    }
+                ],
+                "InstanceType": "c3.large"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "4d048ffb-e98f-403f-a36d-3cb4cd7b3a0b"
+                }
+            }
+        },
+        "myAppInstance2": {
+            "Type": "AWS::OpsWorks::Instance",
+            "Properties": {
+                "StackId": {
+                    "Ref": "myDemoStack"
+                },
+                "LayerIds": [
+                    {
+                        "Ref": "myLayer"
+                    }
+                ],
+                "InstanceType": "c3.large"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "dcbe016a-ca6e-4274-a0da-17bfebb30c19"
+                }
+            }
+        },
+        "myDBInstance": {
+            "Type": "AWS::OpsWorks::Instance",
+            "Properties": {
+                "StackId": {
+                    "Ref": "myDemoStack"
+                },
+                "LayerIds": [
+                    {
+                        "Ref": "DBLayer"
+                    }
+                ],
+                "InstanceType": "c3.large"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "0927b5fb-d874-48aa-a1b8-519bc199bccb"
+                }
+            }
+        },
+        "mydemoapp": {
+            "Type": "AWS::OpsWorks::App",
+            "Properties": {
+                "StackId": {
+                    "Ref": "myDemoStack"
+                },
+                "Type": "php",
+                "Name": {
+                    "Ref": "AppName"
+                },
+                "AppSource": {
+                    "Type": "git",
+                    "Url": "git://github.com/amazonwebservices/
+                     opsworks-demo-php-simple-app.git",
+                    "Revision": "version2"
+                },
+                "Attributes": {
+                    "DocumentRoot": "web"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "1faf9f43-5a8b-472d-8a6b-789ba6c4fc63"
+                }
+            }
+        }
+    },
+    "Metadata": {
+        "AWS::CloudFormation::Designer": {
+            "40ab7475-af57-4eb5-a9b9-f63926c70df4": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 190,
+                    "y": 50
+                },
+                "z": 1,
+                "embeds": []
+            },
+            "6cbc631f-81d7-4261-867d-a5a49af8e2ef": {
+                "size": {
+                    "width": 420,
+                    "height": 330
+                },
+                "position": {
+                    "x": -260,
+                    "y": -80
+                },
+                "z": 1,
+                "embeds": [
+                    "1faf9f43-5a8b-472d-8a6b-789ba6c4fc63",
+                    "edbd7ee2-36ab-4680-bd75-e8b59090066f",
+                    "0927b5fb-d874-48aa-a1b8-519bc199bccb",
+                    "5669c25d-ed1f-4a36-8cd8-d8e023b10d13",
+                    "dcbe016a-ca6e-4274-a0da-17bfebb30c19",
+                    "4d048ffb-e98f-403f-a36d-3cb4cd7b3a0b"
+                ]
+            },
+            "1faf9f43-5a8b-472d-8a6b-789ba6c4fc63": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": -230,
+                    "y": -20
+                },
+                "z": 2,
+                "parent": "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                "embeds": [],
+                "iscontainedinside": [
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef"
+                ]
+            },
+            "edbd7ee2-36ab-4680-bd75-e8b59090066f": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": -110,
+                    "y": -20
+                },
+                "z": 2,
+                "parent": "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                "embeds": [],
+                "iscontainedinside": [
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef"
+                ],
+                "dependson": [
+                    "1faf9f43-5a8b-472d-8a6b-789ba6c4fc63"
+                ]
+            },
+            "0927b5fb-d874-48aa-a1b8-519bc199bccb": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": -230,
+                    "y": 100
+                },
+                "z": 2,
+                "parent": "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                "embeds": [],
+                "isassociatedwith": [
+                    "edbd7ee2-36ab-4680-bd75-e8b59090066f"
+                ],
+                "iscontainedinside": [
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef"
+                ]
+            },
+            "5669c25d-ed1f-4a36-8cd8-d8e023b10d13": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": -110,
+                    "y": 100
+                },
+                "z": 2,
+                "parent": "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                "embeds": [],
+                "iscontainedinside": [
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef"
+                ],
+                "dependson": [
+                    "1faf9f43-5a8b-472d-8a6b-789ba6c4fc63"
+                ]
+            },
+            "dcbe016a-ca6e-4274-a0da-17bfebb30c19": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 10,
+                    "y": -20
+                },
+                "z": 2,
+                "parent": "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                "embeds": [],
+                "isassociatedwith": [
+                    "5669c25d-ed1f-4a36-8cd8-d8e023b10d13"
+                ],
+                "iscontainedinside": [
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef"
+                ]
+            },
+            "4d048ffb-e98f-403f-a36d-3cb4cd7b3a0b": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 10,
+                    "y": 100
+                },
+                "z": 2,
+                "parent": "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                "embeds": [],
+                "isassociatedwith": [
+                    "5669c25d-ed1f-4a36-8cd8-d8e023b10d13"
+                ],
+                "iscontainedinside": [
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef",
+                    "6cbc631f-81d7-4261-867d-a5a49af8e2ef"
+                ]
+            },
+            "68a38b65-512e-4071-8aff-22dafb5a5a98": {
+                "source": {
+                    "id": "40ab7475-af57-4eb5-a9b9-f63926c70df4"
+                },
+                "target": {
+                    "id": "5669c25d-ed1f-4a36-8cd8-d8e023b10d13"
+                },
+                "z": 2
+            }
+        }
+    }
+}

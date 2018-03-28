@@ -1,0 +1,39 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:GetItem",
+                "dynamodb:BatchGetItem",
+                "dynamodb:Query",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:BatchWriteItem"
+            ],
+            "Resource": [
+                "arn:aws:dynamodb:us-west-2:
+                123456789012:table/GameRecord"
+            ],
+            "Condition": {
+                "ForAllValues:StringEquals": {
+                    "dynamodb:LeadingKeys": [
+                        "${www.facebook.com:user_id}"
+                    ],
+                    "dynamodb:Attributes": [
+                        "UserId",
+                        "GameTitle",
+                        "Wins",
+                        "Losses",
+                        "TopScore",
+                        "TopScoreDateTime"
+                    ]
+                },
+                "StringEqualsIfExists": {
+                    "dynamodb:Select": "SPECIFIC_ATTRIBUTES"
+                }
+            }
+        }
+    ]
+}
