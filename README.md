@@ -7,7 +7,7 @@ This book starts with the basics of why cloud security is important and how auto
 
 By the end of this book, you will have hands-on experience of automating your cloud security and governance.
 ## Instructions and Navigation
-All of the code is organized into folders. Each folder starts with a number followed by the application name. For example, Chapter02.
+All of the code is organized into folders. For example, Chapter06.
 
 
 
@@ -34,5 +34,3 @@ An AWS user account is required. If you don't have a user account, ensure that y
 
 * [OpenStack: Public & Hybrid IaaS Cloud with OpenStack [Video]](https://www.packtpub.com/virtualization-and-cloud/openstack-public-hybrid-iaas-cloud-openstack?utm_source=github&utm_medium=repository&utm_campaign=9781788995689)
 
-### Suggestions and Feedback
-[Click here](https://docs.google.com/forms/d/e/1FAIpQLSe5qwunkGf6PUvzPirPDtuy1Du5Rlzew23UBp2S-P3wB-GcwQ/viewform) if you have any feedback or suggestions.
